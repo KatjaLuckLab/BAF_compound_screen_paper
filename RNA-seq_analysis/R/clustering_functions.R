@@ -101,10 +101,10 @@ runKMeans <- function(InputDF2,K,compound){
 #' Comparing the Performance of Clustering Algorithms
 
 #' This function plots the performance of various clustering algorithms on the log2 fold-change in gene expression and returns them in a list. The best scoring clustering method and number of clusters is also returned.
-#' @param UnsupervisedResultsDF A dataframe containing the performance of k-means, PAM (partitioning around the medoids), hierarchical, and c-means clustering algorithms described by how well the clusters are separated (average Silhuouette Width, Dunn Score, Connectivity Score) and external cluster validation (Meila’s Variation of Information (MVI),corrected Rand Index (CRI)).
+#' @param UnsupervisedResultsDF A dataframe containing the performance of k-means  hierarchical clustering algorithms described by how well the clusters are separated (average Silhuouette Width, Dunn Score, Connectivity Score).
 
 #' @return
-#'\item{A list of plots comparing the performance of other clustering algorithms described by how well the clusters are separated (average Silhuouette Width, Dunn Score, Connectivity Score) and a dataframe containing the best clustering method and number of clusters.}
+#'\item{A list of plots comparing the performance of other clustering algorithms described by how well the clusters are separated (average Silhuouette Width, Dunn Score, Connectivity Score) and a dataframe containing the best clustering method and number of clusters across the genes (rows) and conditions (columns).}
 #' @author Caroline Barry
 #' @import dplyr
 #' @import ggplot2
@@ -259,7 +259,7 @@ runUnsupervisedAlgorithmComparison <- function(UnsupervisedResultsDF){
 #' @param scaling Character variable that is user-specified where min and max values for color scale are specified ("scaled") or are simply the max and min values of the dataset ("unscaled"; default).
 #' @param minColorRange Numerical variable represneting the minimum value of the color scale. Default is set to NULL.
 #' @param maxColorRange Numerical variable represneting the maximum value of the color scale. Default is set to NULL.
-#' @param PValueDF Martrix containing significance values (adjusted p-values from DESeq2) for each gene and condition. Default is set to NULL.
+#' @param PValueDF Martrix containing significance asterisks (representing the adjusted p-values from DESeq2) for each gene and condition. Default is set to NULL.
 #' @param metadata Dataframe containing pathway and subpathway information for the genes. These labels will be used for annotating the heatmap. Default is set to NULL.
 #' @author Caroline Barry
 #' @import cluster
@@ -275,6 +275,32 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
   bestClustMethodcol <- subset(bestClustMethod, type =="col")
 
   bestClustMethod <- subset(bestClustMethod, type =="row")
+
+  # in case PValueDF == NULL, create empty matrix
+  if(isTRUE(is.matrix(PValueDF))==FALSE){
+
+  PValueDF <- data.frame(stringsAsFactors = FALSE,matrix(nrow = nrow(HeatmapDF), ncol = ncol(HeatmapDF)))
+
+  colnames(PValueDF) <- colnames(HeatmapDF)
+
+  rownames(PValueDF) <- rownames(HeatmapDF)
+
+  CL_list <- colnames(PValueDF)
+
+  gene_list <- rownames(PValueDF)
+
+  for(k in 1:length(CL_list)){
+
+    for(j in 1:length(gene_list)){
+
+      PValueDF[j,k] <- " "
+    }
+  }
+
+  PValueDF <- as.matrix(PValueDF)
+  } else
+
+
   ###### if best clustering method is K-means ########
   if(isTRUE(bestClustMethod$Method=="K-means")==TRUE){
 
@@ -401,7 +427,7 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
         maxval <- maxColorRange
 
         # Define custom breaks from -2 to +2 (centered at 0)
-        my_breaks <- seq(minval, maxval, length.out = col_length + 1)  # must be length(colors) + 1 #101
+        my_breaks <- seq(minval, maxval, length.out = col_length + 1)  # must be length(colors) + 1
 
         comprehensive_heatmap <- pheatmap::pheatmap(deviations_ordered_col,
                                                     cluster_rows = FALSE,  # preserve k-means order
@@ -459,7 +485,6 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
         comprehensive_heatmap <- pheatmap::pheatmap(deviations_ordered,
                                                     cluster_rows = FALSE,  # preserve k-means order
                                                     cluster_cols = FALSE,   # still cluster KOs
-                                                    # kmeans_k = columnk,
                                                     annotation_row = row_annot_ordered,
                                                     annotation_colors =annotation_colors,
                                                     color = my_palette,
@@ -470,7 +495,7 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
                                                     show_rownames = TRUE,
                                                     cellwidth = 7,
                                                     cellheight = 2.7,
-                                                    fontsize=5.5,#10
+                                                    fontsize=5.5,
                                                     angle_col = 90,
                                                     display_numbers = pvalues_ordered,
                                                     main = paste0(compound,  " treatment - ", genetype, " genes"))
@@ -491,8 +516,6 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
 
       }
     }
-    # }
-
 
     ClusterPlotObject<-factoextra::fviz_cluster(k2m_data, data = InputDF,
                                                 ellipse.type = "convex",
@@ -510,7 +533,7 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
 
 
     k2m_data <- factoextra::eclust(HeatmapDF, "kmeans", k = as.numeric(as.character(bestClustMethod$Cluster_Num)), nstart = 25, graph = F)
-    AvgSilPlotObjectrow <-factoextra::fviz_silhouette(k2m_data, palette = colors1,#"jco",
+    AvgSilPlotObjectrow <-factoextra::fviz_silhouette(k2m_data, palette = colors1,
                                                       ggtheme = theme_classic())+ theme(axis.text.y = element_text(size = 13),
                                                                                         axis.title=element_text(size=14,face="bold"),
                                                                                         legend.text = element_text(size=13),legend.title = element_text(size=14),
@@ -532,7 +555,7 @@ getClusteredHeatmap <- function(HeatmapDF,bestClustMethod,columnk,scaling="unsca
 
     # Define color palette (e.g., 100 steps from blue to white to red)
     col_length <- 11
-    my_palette <- colorRampPalette(c("blue", "white", "red"))(col_length)#(7)
+    my_palette <- colorRampPalette(c("blue", "white", "red"))(col_length)
 
     if(columnk==0){
 
