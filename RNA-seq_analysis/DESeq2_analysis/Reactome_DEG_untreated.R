@@ -32,9 +32,7 @@ library(openxlsx)
 library(ggvenn)
 library(openxlsx)
 
-save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
-  stopifnot(!missing(x))
-  stopifnot(!missing(filename))
+save_heatmap <- function(x, filename, width=7, height=7) {
   pdf(filename, width=width, height=height)
   grid::grid.newpage()
   grid::grid.draw(x$gtable)
@@ -552,7 +550,7 @@ if(isTRUE(file.exists(SubDir))==TRUE){
 NewFilename = sprintf("./Unsupervised_Clustering/Heatmap/%s_%s_%s_heatmap_%s.pdf",bestClustMethodDF$Method[1],
                       bestClustMethodDF$Cluster_Num[1], bestClustMethodDF$Cluster_Num[2],compound)
 
-save_pheatmap_pdf(plotlist$Heatmap, NewFilename)
+save_heatmap(plotlist$Heatmap, NewFilename)
 
 #save average silhouette plot - row clustering
 NewFilename = sprintf("./Unsupervised_Clustering/Heatmap/%s_%s_avg_sil_row_%s.pdf", bestClustMethodDF$Method[1],

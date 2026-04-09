@@ -29,9 +29,7 @@ library("biomaRt")
 library(org.Hs.eg.db)
 library(clusterProfiler)
 
-save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
-  stopifnot(!missing(x))
-  stopifnot(!missing(filename))
+save_heatmap <- function(x, filename, width=7, height=7) {
   pdf(filename, width=width, height=height)
   grid::grid.newpage()
   grid::grid.draw(x$gtable)
@@ -119,4 +117,4 @@ dist_heatmap <- pheatmap(sampleDistMatrix,
 NewFilename = sprintf("euclidean_dist_rlog_heatmap.pdf")
 
 
-save_pheatmap_pdf(dist_heatmap, NewFilename)
+save_heatmap(dist_heatmap, NewFilename)

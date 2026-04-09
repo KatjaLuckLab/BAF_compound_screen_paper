@@ -30,9 +30,7 @@ library(openxlsx)
 library(enrichplot)
 library(ggtree)
 
-save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
-  stopifnot(!missing(x))
-  stopifnot(!missing(filename))
+save_heatmap <- function(x, filename, width=7, height=7) {
   pdf(filename, width=width, height=height)
   grid::grid.newpage()
   grid::grid.draw(x$gtable)
@@ -341,7 +339,7 @@ if(isTRUE(file.exists(SubDir))==TRUE){
 NewFilename = sprintf("./Unsupervised_Clustering/Heatmap/%s_%s_%s_%s_%s_heatmap.pdf",bestClustMethodDF$Method[1],
                       bestClustMethodDF$Cluster_Num[1], bestClustMethodDF$Cluster_Num[2],genetype,comparison)
 
-save_pheatmap_pdf(plotlist$Heatmap, NewFilename)
+save_heatmap(plotlist$Heatmap, NewFilename)
 
 #save average silhouette plot - row clustering
 NewFilename = sprintf("./Unsupervised_Clustering/Heatmap/%s_%s_avg_sil_row_%s_%s.pdf", bestClustMethodDF$Method[1],
@@ -358,7 +356,7 @@ ggsave(filename=NewFilename, plot=plotlist$ClusterViz,width = 15, height = 10, d
 
 
 
-###### Annotating k-means clusters & running GO enrichment #######
+########### Annotating k-means clusters & running GO enrichment  ###########
 
 SubDir <- sprintf("/%s/%s/Genes/Protein-coding/Unsupervised_Clustering/Heatmap/GO_enrichment/",dataset_path,comparison)
 
@@ -374,23 +372,21 @@ setwd(sprintf("/%s/%s/Genes/Protein-coding/Unsupervised_Clustering/Heatmap/GO_en
 set.seed(123)
 k2m_data <- kmeans(HeatmapDF, as.numeric(bestClustMethodDF$Cluster_Num[1]), nstart=25)
 
-# Row annotation with cluster assignment
+# create row annotation with cluster assignment
 row_annot <- data.frame(Cluster = factor(k2m_data$cluster))
 rownames(row_annot) <- rownames(HeatmapDF)
 
-# Order genes by their assigned cluster
+# order genes by their assigned cluster
 cluster_order <- order(k2m_data$cluster)
 deviations_ordered <- HeatmapDF[cluster_order, ]
 
-# Also reorder the annotation to match
+# update order of annotation to match
 row_annot_ordered <- row_annot[cluster_order, , drop = FALSE]
 
-# Assume `row_annot_ordered` has a column called "Cluster"
 levels <- unique(row_annot_ordered$Cluster)
 
 
-# OPTIONAL
-# Create a list of genes per cluster
+# create a list of genes per cluster
 gene_clusters <- split(rownames(HeatmapDF), k2m_data$cluster)
 
 for (i in seq_along(gene_clusters)) {
@@ -399,15 +395,15 @@ for (i in seq_along(gene_clusters)) {
               quote = FALSE, row.names = FALSE, col.names = FALSE)
 }
 
-# Extract gene-to-cluster mapping
+# fetch gene-to-cluster mapping
 gene_to_cluster <- k2m_data$cluster
 gene_clusters <- split(names(gene_to_cluster), gene_to_cluster)
 
-# Loop and write full table per cluster
+# loop & save table per cluster
 for (i in seq_along(gene_clusters)) {
   genes <- gene_clusters[[i]]
 
-  # Subset the heatmap matrix for this cluster
+  # subset heatmap matrix for this cluster
   cluster_data <- deviations_ordered[genes, , drop = FALSE]
 
   # Create a data frame with gene names and values
@@ -417,25 +413,25 @@ for (i in seq_along(gene_clusters)) {
     cluster_data,
     row.names = NULL)
 
-  # Write to file
+  # save file
   write.csv(df, file = paste0("Cluster_", i, "_genes_with_values.csv"), row.names = TRUE)}
 
-###### Clusters GO Enrichment ######
+########### Clusters GO Enrichment  ###########
 
-# Create a list to store results
+# store results in list
 enrichment_results <- list()
 
-# Loop through each cluster
+# loop through each cluster
 for (i in seq_along(gene_clusters)) {
   cat("\nRunning enrichment for Cluster", i, "\n")
 
-  # Get genes for the current cluster
+  # fetch genes
   genes <- gene_clusters[[i]]
 
-  # Convert gene symbols to Entrez IDs
+  # convert gene symbols to Entrez IDs
   entrez_ids <- bitr(genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
 
-  # Run GO enrichment for Biological Process (BP)
+  # run GO enrichment
   ego <- enrichGO(gene = entrez_ids$ENTREZID,
                   OrgDb = org.Hs.eg.db,
                   ont = "BP",  # Biological Process
@@ -443,7 +439,6 @@ for (i in seq_along(gene_clusters)) {
                   pvalueCutoff = 0.05,
                   readable = TRUE)
 
-  # Store the results for each cluster
   enrichment_results[[i]] <- ego}
 
 # Plotting only top 10 terms that are significant (padjust < 0.05)
@@ -456,21 +451,22 @@ mapplots <- c()
 n<-0
 m<-0
 s<-0
-# Loop over enrichment results and plot if results exist
+
+# loop over enrichment results
 for (i in seq_along(enrichment_results)) {
 
-  # Set a number of top terms to display (e.g., top 10)
+  # plotting top 10 significant terms
   top_terms <- 10
 
   ego <- enrichment_results[[i]]
 
-  # Check if the enrichment result exists and contains significant rows
+  # search for significant enrichment results
   if (!is.null(ego) && "result" %in% slotNames(ego)) {
     res_df <- ego@result
     if (nrow(res_df) > 0 && any(res_df$p.adjust < 0.05)) {
       cat("Plotting Cluster", i, "\n")
 
-      # Create barplot
+      # create bar plot
       p <- barplot(ego, showCategory = top_terms,
                    title = paste("Cluster", i, "GO Enrichment"))
 
@@ -483,7 +479,7 @@ for (i in seq_along(enrichment_results)) {
 
         p4 <- emapplot(ego2)}
 
-      #create list of plots
+      # create list of plots
       if(isTRUE(!(is.null(p)))==TRUE){
         n<- 1+n
         barplots[[n]] <- p
@@ -497,20 +493,18 @@ for (i in seq_along(enrichment_results)) {
             mapplots[[s]] <- p4}}}
 
 
-      # Save the plot
+      # save plots
       ggsave(paste0("Cluster_", i, "_GO_Enrichment.png"),
              plot = p, width = 8, height = 10)
 
-      # Save the plot
       ggsave(paste0("Cluster_", i, "_GO_Enrichment_genes.png"),
              plot = p2, width = 10, height = 6)
 
       if(isTRUE(nrow(ego)>2)==TRUE){
-        # Save the plot
+
         ggsave(paste0("Cluster_", i, "_GO_Enrichment_treeplot.png"),
                plot = p3, width = 10, height = 6)
 
-        # Save the plot
         ggsave(paste0("Cluster_", i, "_GO_Enrichment_mapplot.png"),
                plot = p4, width = 10, height = 6)}
 
@@ -522,7 +516,7 @@ for (i in seq_along(enrichment_results)) {
   }
 }
 
-# Save the list of plots
+# save list of plots
 if(isTRUE(length(barplots)>1)==TRUE){
   ggsave(paste0("All_Clusters_GO_Enrichment.png"),
          plot = gridExtra::grid.arrange(grobs = barplots),width = 10, height = 14)
@@ -535,15 +529,15 @@ if(isTRUE(length(barplots)>1)==TRUE){
 
 }
 
-# Save individual CSV files for each cluster
+# save CSV files for each cluster
 for (i in seq_along(enrichment_results)) {
   ego <- enrichment_results[[i]]
 
-  # Check if enrichment result exists and contains significant terms
+  # search for significant enrichment results
   if (!is.null(ego) && "result" %in% slotNames(ego)) {
     res_df <- ego@result
     if (nrow(res_df) > 0) {
-      # Save to CSV
+      # save to CSV
       write.csv(res_df, file = paste0("Cluster_", i, "_GO_Enrichment.csv"), row.names = FALSE)
       cat("Saved GO enrichment results for Cluster", i, "\n")
     } else {
